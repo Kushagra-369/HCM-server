@@ -1,13 +1,15 @@
 const UserModel = require("../Model/UserModel")
 const { OTPverificationUser } = require("../Mail/UserMail")
+const crypto = require('crypto');
+const otp = crypto.randomInt(1000, 10000); ` `
 
 exports.HCM = async (req, res) => {
     try {
         const data = req.body
- 
+
         if (Object.keys(data).length === 0) { return res.status(400).send({ status: false, msg: "can not give empty field" }) }
 
-        const randomOTP = Math.floor(1000 + Math.random() * 9000)
+        const randomOTP = crypto.randomInt(1000, 10000);
 
         const Verification = {}
         Verification.user = {}
@@ -17,11 +19,15 @@ exports.HCM = async (req, res) => {
         if (CheckUser) {
             console.log(CheckUser);
             const DBDATABASE = { name: CheckUser.name, email: CheckUser.email, _id: CheckUser._id }
+            const userVerification = CheckUser.Verification?.user || {};
+            const adminVerification = CheckUser.Verification?.Admin || {};
+
 
             const { isDeleted, isVerify, isAccountActive } = Verification
-            if (isDeleted) return res.status(400).send({ status: false, msg: "user already deleted" })
-            if (!(CheckUser.Verification.Admin.isAccountActive)) return res.status(400).send({ status: false, msg: "user already block" })
-            if (isVerify) return res.status(400).send({ status: false, msg: "user already verifyto login" })
+            if (userVerification.isDeleted) return res.status(400).send({ status: false, msg: 'User already deleted' });
+            if (userVerification.isVerify) return res.status(400).send({ status: false, msg: 'Account already verified, please login' });
+            if (!adminVerification.isAccountActive) return res.status(400).send({ status: false, msg: 'User is blocked by admin' });
+
             OTPverificationUser(CheckUser.name, CheckUser.email, randomOTP)
             return res.status(200).send({ status: true, msg: "OTP sent successfully", data: DBDATABASE })
 
@@ -53,7 +59,7 @@ exports.UserOtpVerify = async (req, res) => {
         if (!user) return res.status(400).send({ status: true, msg: "User not found" });
         const dbOtp = user.Verification.user.UserOTP;
 
-        if (!(dbOtp == otp)) return res.status(400).send({ status: true, msg: "Wrong otp" });
+        if (!(dbOtp == otp)) return res.status(400).send({ status: true, msg: "The OTP you entered is incorrect. Please try again." });
 
         await UserModel.findByIdAndUpdate({ _id: id }, { $set: { 'Varification.user.isVerify': true } }, { new: true });
         res.status(200).send({ status: true, msg: "User Verify successfully" });
