@@ -1,8 +1,12 @@
-const express= require("express")
-const router = express.Router()
-const{HCM ,UserOtpVerify} = require("../Controller/UserController")
+const express = require("express");
+const router = express.Router();
 
-router.post("/HCM" , HCM)
-router.post('/user_otp_verify/:id', UserOtpVerify);
+// Import controller functions
+const { HCM, UserOtpVerify, LogInUser,ResendOTP  } = require("../Controller/UserController");
 
-module.exports  = router
+router.post("/HCM", HCM);
+router.post("/user_otp_verify/:id", UserOtpVerify);
+router.post("/LogInUser", LogInUser);
+router.post("/resend_otp/:id", ResendOTP);
+
+module.exports = router;
