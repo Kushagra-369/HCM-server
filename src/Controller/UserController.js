@@ -61,7 +61,6 @@ exports.HCM = async (req, res) => {
   }
 };
 
-// ========================== OTP Verify ==========================
 exports.UserOtpVerify = async (req, res) => {
   try {
     const otp = req.body.otp;
@@ -98,7 +97,6 @@ exports.UserOtpVerify = async (req, res) => {
   }
 };
 
-// ========================== Login ==========================
 exports.LogInUser = async (req, res) => {
   try {
     const { email, password } = req.body;
