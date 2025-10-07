@@ -13,20 +13,27 @@ const UserSchema = new mongoose.Schema(
         name: { type: String, required: [true, " Name is Required "], validate: [ValidName, "Name is not valid"], trim: true },
         email: { type: String, required: [true, " Email is Required "], validate: [ValidEmail, "Email is not valid"], trim: true, lowercase: true },
         password: { type: String, required: [true, " Password is Required "], validate: [ValidPassword, "Password is not valid"], trim: true },
-        Verification: {
-            user: {
+Verification: {
+    user: {
+        UserOTP: { type: String, default: 0 },
+        isDeleted: { type: Boolean, default: false },
+        isVerify: { type: Boolean, default: false },
+        isOtpVerified: { type: String, default: 0 },
+        expireOTP: { type: Date, default: null }
+    },
+    Admin: {
+        isAccountActive: { type: Boolean, default: true },
+        AdminOTP: { type: String, default: null },
+        isOtpVerified: { type: String, default: 0 },
+    },
+            email: {
+                newEmail: { type: String, trim: true },
                 UserOTP: { type: String, default: 0 },
-                isDeleted: { type: Boolean, default: false },
-                isVerify: { type: Boolean, default: false },
-                isOtpVerified: { type: String, default: 0 },
                 expireOTP: { type: Date, default: null }
+
             },
-            Admin: {
-                isAccountActive: { type: Boolean, default: true },
-                AdminOTP: { type: String, default: null },
-                isOtpVerified: { type: String, default: 0 },
-            }
-        },
+},
+
         role: { type: String, enum: ['user', 'admin'], required: true, trim: true },
     },
     { timestamps: true }
