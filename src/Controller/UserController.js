@@ -2,6 +2,7 @@ const UserModel = require("../Model/UserModel");
 const { OTPverificationUser } = require("../Mail/UserMail");
 const { errorHandlingdata } = require('../Error/ErrorHandling')
 const { changeEmail } = require("../Mail/UserMail");
+const { UploadProfileImg, DeleteProfileImg } = require("../Images/UploadImage")
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -333,42 +334,67 @@ exports.changePassword = async (req, res) => {
 };
 
 exports.UploadProfileImg = async (req, res) => {
-    try {
-        const id = req.params.id;
-        const file = req.file;
-        console.log(file);
+  try {
+    const id = req.params.id;
+    const file = req.file;
 
-        if (!file) return res.status(400).send({ status: false, msg: "Please Provide File" });
-
-        const CheckUser = await UserModel.findById(id);
-        if (!CheckUser) return res.status(400).send({ status: false, msg: "User not Found" });
-
-        // Delete previous image if exists
-        if (CheckUser.profileIMG) {
-            await DeleteProfileImg(CheckUser.profileIMG.public_id);
-        }
-
-        // Upload new image
-        const imgURL = await UploadProfileImg(file.path);
-
-        const updatedUser = await UserModel.findByIdAndUpdate(
-            id,
-            { $set: { profileIMG: imgURL } },
-            { new: true }
-        );
-
-        const DB = {
-            _id: updatedUser._id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            profileIMG: updatedUser.profileIMG
-        };
-
-        res.status(200).send({ status: true, msg: "Profile Updated successfully", data: DB });
-    } catch (e) {
-        errorHandlingdata(e, res);
+    if (!file) {
+      return res.status(400).send({ status: false, msg: "Please provide a file" });
     }
-}
+
+    const user = await UserModel.findById(id);
+    if (!user) {
+      return res.status(404).send({ status: false, msg: "User not found" });
+    }
+
+    // Delete old image if it exists
+    if (user.profileIMG?.public_id) {
+      await DeleteProfileImg(user.profileIMG.public_id);
+    }
+
+    // Upload new image to Cloudinary
+    const uploadedImg = await UploadProfileImg(file.path);
+
+    // Log the returned data for debugging
+    console.log("🧩 Cloudinary Upload Result:", uploadedImg);
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      id,
+      { $set: { profileIMG: uploadedImg } },
+      { new: true, runValidators: false }
+    );
+
+    // Safely extract URL
+    const secureUrl =
+      uploadedImg?.secure_url ||
+      uploadedImg?.url ||
+      updatedUser?.profileIMG?.secure_url ||
+      updatedUser?.profileIMG?.url ||
+      null;
+
+    if (!secureUrl) {
+      return res.status(500).send({
+        status: false,
+        msg: "Image upload succeeded, but no URL found from Cloudinary",
+      });
+    }
+
+    return res.status(200).send({
+      status: true,
+      msg: "Profile updated successfully",
+      data: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        profileIMG: { secure_url: secureUrl },
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    errorHandlingdata(e, res);
+  }
+};
+
 
 exports.newEmail = async (req, res) => {
     try {

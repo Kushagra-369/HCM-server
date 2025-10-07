@@ -4,6 +4,12 @@ const bcrypt = require('bcrypt');
 
 const UserSchema = new mongoose.Schema(
     {
+                profileIMG: {
+            type: {
+                secure_url: { type: String, required: true, trim: true },
+                public_id: { type: String, required: true, trim: true }
+            }
+        },
         profile_image: {
             type: {
                 url: { type: String, required: true, trim: true },
