@@ -5,9 +5,11 @@ const multer = require("multer")
 // Import controller functions
 const { HCM, UserOtpVerify, LogInUser,ResendOTP , userDelete,userUpdated,newEmail,newEmailVerify,changePassword,UploadProfileImg} = require("../Controller/UserController");
 const {UserAuthenticate , UserAuthorize} = require("../middleware/UserAuth")
- 
+const {LogInAdmin,AdminOtpVerify,AdminProfileImg} = require("../Controller/AdminController")
+const {authenticate,AdminAuthorize} = require("../middleware/AdminAuth")
 const upload = multer({storage:multer.diskStorage({})})
 
+// user
 router.post("/HCM", HCM);
 router.post("/user_otp_verify/:id", UserOtpVerify);
 router.post("/LogInUser", LogInUser);
@@ -18,5 +20,10 @@ router.put('/newEmail/:id', UserAuthenticate, UserAuthorize, newEmail);
 router.post('/newEmailVerify/:id', UserAuthenticate, UserAuthorize, newEmailVerify);
 router.put('/changePassword/:id', UserAuthenticate, UserAuthorize, changePassword);
 router.put('/UploadProfileImg/:id', upload.single("profileIMG"), UserAuthenticate, UserAuthorize, UploadProfileImg);
+
+// admin
+router.post("/LogInAdmin", LogInAdmin);
+router.post("/AdminOtpVerify/:id", AdminOtpVerify);
+// router.put('/AdminProfileImg/:id', upload.single("profileIMG"), authenticate, AdminAuthorize, AdminProfileImg);
 
 module.exports = router;

@@ -1,0 +1,230 @@
+const UserModel = require("../Model/UserModel");
+// const Review = require("../Model/ReviewModel");
+const { otpVerificationAdmin } = require("../Mail/UserMail")
+const { errorHandlingdata } = require('../Error/ErrorHandling')
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt');
+const { UploadProfileImg, DeleteProfileImg } = require("../Images/UploadImage")
+const dotenv = require("dotenv")
+dotenv.config()
+
+
+exports.LogInAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1. Find admin user
+    const user = await UserModel.findOne({ email, role: "admin" });
+    if (!user) {
+      return res.status(400).send({ status: false, msg: "Admin user not found" });
+    }
+
+    const AdminDB = {
+      profileIMG: user.profileIMG,
+      name: user.name,
+      email: user.email,
+    };
+
+    // 2. Validate password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).send({ status: false, msg: "Incorrect password" });
+    }
+
+    // 3. Generate OTP & expiration
+    const otp = Math.floor(1000 + Math.random() * 9000); // 4-digit OTP
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // 4. Save OTP in admin section of Verification
+const updatedAdmin = await UserModel.findOneAndUpdate(
+  { email, role: "admin" },
+  {
+    $set: {
+      "Verification.Admin.AdminOTP": otp,
+      "Verification.Admin.expireOTP": otpExpiry,
+    },
+  },
+  { new: true }
+);
+
+if (!updatedAdmin) {
+  return res.status(404).send({ status: false, msg: "Admin not found or role mismatch" });
+}
+console.log("Updated OTP expiry:", updatedAdmin.Verification.Admin.expireOTP);
+
+
+    // 5. Send OTP via email
+    await otpVerificationAdmin(user.name, user.email, otp);
+
+    // 6. Create JWT token for further steps
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_Admin_SECRET_KEY,
+      { expiresIn: "24h" }
+    );
+
+    return res.status(200).send({
+      status: true,
+      msg: "Login successful. OTP has been sent to your email.",
+      data: {
+        token,
+        id: user._id,
+        email: user.email, // Include email in response
+      },
+    });
+  } catch (e) {
+    errorHandlingdata(e, res);
+  }
+};
+ 
+exports.getAllUserData = async (req, res) => {
+    try {
+
+        const type = req.params.type
+        const isDeleted = req.params.isDeleted
+        if (type == 'all') {
+            if (isDeleted == 'true') {
+                const DB = await UserModel.find({ role: 'user', 'Verification.user.isDeleted': true })
+                if (DB.length == 0) return res.status(400).send({ status: false, msg: "Data not Found" })
+                if (!DB) return res.status(400).send({ status: false, msg: "Data not Found" })
+                return res.status(200).send({ status: true, msg: "Successfully Got All User Data", data: DB })
+            }
+            else {
+                const DB = await UserModel.find({ role: 'user', 'Verification.user.isDeleted': false })
+                if (!DB) return res.status(400).send({ status: false, msg: "Data not Found" })
+                return res.status(200).send({ status: true, msg: "Successfully Got All User Data", data: DB })
+            }
+        } else {
+            const DB = await UserModel.findById(type)
+            if (!DB) return res.status(400).send({ status: false, msg: "Data not Found" })
+            return res.status(200).send({ status: true, msg: "Succesfully User Data", data: DB })
+        }
+    }
+    catch (e) {
+        errorHandlingdata(e, res)
+    }
+}
+
+exports.AdminOtpVerify = async (req, res) => {
+    try {
+        const otp = req.body.otp;
+        const id = req.params.id;
+
+        if (!otp) {
+            return res.status(400).send({ status: false, msg: "Please provide OTP" });
+        }
+
+        const user = await UserModel.findById(id);
+        if (!user || user.role.toLowerCase() !== "admin") {
+            return res.status(404).send({ status: false, msg: "Admin user not found" });
+        }
+
+        console.log("User OTP from DB:", user.Verification?.Admin?.AdminOTP);
+        console.log("OTP Expiry:", user.Verification?.Admin?.expireOTP);
+
+        const dbOtp = user.Verification?.Admin?.AdminOTP?.toString();
+        const otpExpiry = user.Verification?.Admin?.expireOTP;
+
+        if (!dbOtp || dbOtp !== otp.toString()) {
+            return res.status(400).send({ status: false, msg: "Incorrect OTP" });
+        }
+
+        if (!otpExpiry || new Date() > new Date(otpExpiry)) {
+            return res.status(400).send({ status: false, msg: "OTP has expired. Please request a new one." });
+        }
+
+        await UserModel.findByIdAndUpdate(
+            id,
+            { $set: { 'Verification.Admin.isOtpVerified': "1" } },
+            { new: true }
+        );
+
+        const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_Admin_SECRET_KEY,
+            { expiresIn: "24h" }
+        );
+
+        return res.status(200).send({
+            status: true,
+            msg: "Admin verified successfully",
+            data: {
+                id: user._id,
+                token,
+                name: user.name,
+                email: user.email,
+                profileIMG: user.profileIMG
+            }
+        });
+    } catch (e) {
+        console.error("AdminOtpVerify Error:", e);
+        errorHandlingdata(e, res);
+    }
+};
+
+
+exports.UploadAdminProfileImg = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).send({ status: false, msg: "Please provide a profile image" });
+        }
+
+        // ✅ Find only admin users
+        const admin = await UserModel.findOne({ _id: id, role: "admin" });
+        if (!admin) {
+            return res.status(404).send({ status: false, msg: "Admin not found" });
+        }
+
+        // ✅ Delete old image if exists
+        if (admin.profileIMG?.public_id) {
+            await DeleteProfileImg(admin.profileIMG.public_id);
+        }
+
+        // ✅ Upload new image to Cloud
+        const imgURL = await UploadProfileImg(file.path);
+
+        // ✅ Update admin profile with new image
+        const updatedAdmin = await UserModel.findByIdAndUpdate(
+            id,
+            { $set: { profileIMG: imgURL } },
+            { new: true }
+        ).select("_id name email profileIMG role"); // <-- FIX
+
+        return res.status(200).send({
+            status: true,
+            msg: "Admin profile image updated successfully",
+            data: {
+                id: updatedAdmin._id,
+                name: updatedAdmin.name,
+                email: updatedAdmin.email,
+                role: updatedAdmin.role,
+                profileIMG: updatedAdmin.profileIMG // <- keep same casing
+            }
+        });
+
+
+    } catch (e) {
+        errorHandlingdata(e, res);
+    }
+};
+
+exports.getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find()
+      .populate("userId", "name email") // fetch user info
+      .sort({ createdAt: -1 }); // latest first
+
+    return res.status(200).send({
+      status: true,
+      message: "All reviews fetched successfully",
+      data: reviews,
+    });
+  } catch (err) {
+    return res.status(500).send({ status: false, message: err.message });
+  }
+};
+
+

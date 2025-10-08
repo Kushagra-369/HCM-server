@@ -135,7 +135,6 @@ if (type === "change_email") { /* process email change OTP */ }
   }
 };
 
-
 exports.LogInUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -231,7 +230,6 @@ exports.ResendOTP = async (req, res) => {
     return res.status(500).send({ status: false, msg: e.message });
   }
 };
-
 
 exports.userDelete = async (req, res) => {
   try {

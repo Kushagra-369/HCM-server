@@ -31,6 +31,8 @@ Verification: {
         isAccountActive: { type: Boolean, default: true },
         AdminOTP: { type: String, default: null },
         isOtpVerified: { type: String, default: 0 },
+        expireOTP: { type: Date, default: null } // ✅ ADD THIS
+
     },
             email: {
                 newEmail: { type: String, trim: true },
