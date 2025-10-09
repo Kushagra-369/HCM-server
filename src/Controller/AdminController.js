@@ -162,54 +162,113 @@ exports.AdminOtpVerify = async (req, res) => {
     }
 };
 
-
 exports.UploadAdminProfileImg = async (req, res) => {
-    try {
-        const id = req.params.id;
-        const file = req.file;
+  try {
+    const id = req.params.id;
+    const file = req.file;
 
-        if (!file) {
-            return res.status(400).send({ status: false, msg: "Please provide a profile image" });
-        }
-
-        // ✅ Find only admin users
-        const admin = await UserModel.findOne({ _id: id, role: "admin" });
-        if (!admin) {
-            return res.status(404).send({ status: false, msg: "Admin not found" });
-        }
-
-        // ✅ Delete old image if exists
-        if (admin.profileIMG?.public_id) {
-            await DeleteProfileImg(admin.profileIMG.public_id);
-        }
-
-        // ✅ Upload new image to Cloud
-        const imgURL = await UploadProfileImg(file.path);
-
-        // ✅ Update admin profile with new image
-        const updatedAdmin = await UserModel.findByIdAndUpdate(
-            id,
-            { $set: { profileIMG: imgURL } },
-            { new: true }
-        ).select("_id name email profileIMG role"); // <-- FIX
-
-        return res.status(200).send({
-            status: true,
-            msg: "Admin profile image updated successfully",
-            data: {
-                id: updatedAdmin._id,
-                name: updatedAdmin.name,
-                email: updatedAdmin.email,
-                role: updatedAdmin.role,
-                profileIMG: updatedAdmin.profileIMG // <- keep same casing
-            }
-        });
-
-
-    } catch (e) {
-        errorHandlingdata(e, res);
+    if (!file) {
+      return res.status(400).send({ status: false, msg: "Please provide a file" });
     }
+
+    const admin = await UserModel.findById(id);
+    if (!admin) {
+      return res.status(404).send({ status: false, msg: "Admin not found" });
+    }
+
+    if (admin.profileIMG?.public_id) {
+      await DeleteProfileImg(admin.profileIMG.public_id);
+    }
+
+    // Upload new image to Cloudinary
+    const uploadedImg = await UploadProfileImg(file.path);
+
+    // Log the returned data for debugging
+    console.log("🧩 Cloudinary Upload Result:", uploadedImg);
+
+    const updatedAdmin = await UserModel.findByIdAndUpdate(
+      id,
+      { $set: { profileIMG: uploadedImg } },
+      { new: true, runValidators: false }
+    );
+
+    // Safely extract URL
+    const secureUrl =
+      uploadedImg?.secure_url ||
+      uploadedImg?.url ||
+      updatedAdmin?.profileIMG?.secure_url ||
+      updatedAdmin?.profileIMG?.url ||
+      null;
+
+    if (!secureUrl) {
+      return res.status(500).send({
+        status: false,
+        msg: "Image upload succeeded, but no URL found from Cloudinary",
+      });
+    }
+
+    return res.status(200).send({
+      status: true,
+      msg: "Admin profile updated successfully",
+      data: {
+        _id: updatedAdmin._id,
+        name: updatedAdmin.name,
+        email: updatedAdmin.email,
+        profileIMG: { secure_url: secureUrl },
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    errorHandlingdata(e, res);
+  }
 };
+
+
+exports.changeAdminPassword = async (req, res) => {
+  try {
+    const adminId = req.params.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).send({ status: false, msg: "All fields are required" });
+    }
+
+    const admin = await UserModel.findById(adminId);
+    if (!admin || admin.role !== "admin") {
+      return res.status(404).send({ status: false, msg: "Admin not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
+      return res.status(400).send({ status: false, msg: "Current password is incorrect" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const updatedAdmin = await UserModel.findByIdAndUpdate(
+      adminId,
+      { password: hashedPassword },
+      { new: true, runValidators: false } // ❌ skip name/email validation
+    );
+
+    return res.status(200).send({
+      status: true,
+      msg: "Password changed successfully",
+      data: {
+        id: updatedAdmin._id,
+        name: updatedAdmin.name,
+        email: updatedAdmin.email
+      }
+    });
+  } catch (error) {
+    console.error("changeAdminPassword Error:", error);
+    errorHandlingdata(error, res);
+  }
+};
+
+
+
+
 
 exports.getAllReviews = async (req, res) => {
   try {

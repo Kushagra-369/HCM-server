@@ -3,9 +3,7 @@ const jwt = require('jsonwebtoken')
 
 exports.authenticate = (req, res, next) => {
     try {
-        const token =
-            req.headers["x-api-key"] ||
-            req.headers["authorization"]?.split(" ")[1];
+        const token = req.headers["x-api-key"] || req.headers["authorization"]?.split(" ")[1];
 
         if (!token) {
             return res.status(400).send({ status: false, msg: "Token must be present" });
@@ -13,12 +11,9 @@ exports.authenticate = (req, res, next) => {
 
         const decodedToken = jwt.verify(token, process.env.JWT_Admin_SECRET_KEY);
 
-        // Defensive check
-        if (!decodedToken?.userId || !decodedToken?.role) {
-            return res.status(401).send({ status: false, msg: "Invalid token" });
-        }
-
+        // attach decoded token to req.user
         req.user = decodedToken;
+
         next();
     } catch (e) {
         errorHandlingdata(e, res);

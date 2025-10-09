@@ -9,6 +9,7 @@ cloudinary.config({
 });
 
 
+
 exports.UploadProfileImg = async (file) => {
     try {
         console.log(file);
@@ -20,15 +21,16 @@ exports.UploadProfileImg = async (file) => {
     catch (err) { console.log(err) }
 }
 
-exports.DeleteProfileImg = async (id) => {
+exports.DeleteProfileImg = async (public_id) => {
     try {
-
-        await cloudinary.uploader.destroy(id)
-
-        return {secure_url:uploadResult.secure_url , public_id:uploadResult.public_id}
-
+        const result = await cloudinary.uploader.destroy(public_id);
+        console.log("Deleted image result:", result);
+        return result; // usually { result: "ok" } or similar
     }
-    catch (err) { console.log(err) }
+    catch (err) {
+        console.log("Cloudinary delete error:", err);
+        throw err;
+    }
 }
 
 exports.uploadProduct = async (file) => {
