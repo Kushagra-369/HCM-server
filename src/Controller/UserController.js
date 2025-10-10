@@ -2,6 +2,7 @@ const UserModel = require("../Model/UserModel");
 const { OTPverificationUser } = require("../Mail/UserMail");
 const { errorHandlingdata } = require('../Error/ErrorHandling')
 const { changeEmail } = require("../Mail/UserMail");
+const Review = require("../Model/ReviewModel");
 const { UploadProfileImg, DeleteProfileImg } = require("../Images/UploadImage")
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
@@ -526,3 +527,23 @@ if (!dbExpire || !(new Date(dbExpire) > new Date())) {
 };
 
 
+exports.createReview = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { review } = req.body;
+
+    if (!review) {
+      return res.status(400).send({ status: false, message: "Review is required" });
+    }
+
+    const newReview = await Review.create({ userId, review });
+
+    return res.status(201).send({
+      status: true,
+      message: "Review created successfully",
+      data: newReview,
+    });
+  } catch (err) {
+    return res.status(500).send({ status: false, message: err.message });
+  }
+};
