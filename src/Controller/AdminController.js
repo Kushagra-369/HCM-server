@@ -1,10 +1,11 @@
-const UserModel = require("../Model/UserModel");
+const MonsterModel = require("../Model/MonsterModel");
+const path = require("path"); 
 // const Review = require("../Model/ReviewModel");
 const { otpVerificationAdmin } = require("../Mail/UserMail")
 const { errorHandlingdata } = require('../Error/ErrorHandling')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt');
-const { UploadProfileImg, DeleteProfileImg } = require("../Images/UploadImage")
+const { UploadProfileImg, DeleteProfileImg,uploadProduct } = require("../Images/UploadImage")
 const dotenv = require("dotenv")
 dotenv.config()
 
@@ -267,9 +268,6 @@ exports.changeAdminPassword = async (req, res) => {
 };
 
 
-
-
-
 exports.getAllReviews = async (req, res) => {
   try {
     const reviews = await Review.find()
@@ -283,6 +281,81 @@ exports.getAllReviews = async (req, res) => {
     });
   } catch (err) {
     return res.status(500).send({ status: false, message: err.message });
+  }
+};
+
+exports.CreateMonsterByAdmin = async (req, res) => {
+  try {
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
+
+    const {
+      eyes,
+      heads,
+      wings,
+      base,
+      arms,
+      tentacles,
+      customerName,
+      customerEmail,
+      adminId,
+    } = req.body;
+
+    if (!adminId)
+      return res.status(400).json({ msg: "Admin ID must be present" });
+
+    if (!eyes || !heads || !wings || !base || !arms)
+      return res
+        .status(400)
+        .json({ msg: "All required fields must be provided" });
+
+    if (!customerName || !customerEmail)
+      return res
+        .status(400)
+        .json({ msg: "Customer name and email are required" });
+
+    if (!req.file)
+      return res.status(400).json({ msg: "Image must be uploaded" });
+
+    // ✅ Upload monster image to Cloudinary
+    const uploaded = await uploadProduct(req.file.path);
+
+    if (!uploaded || !uploaded.secure_url) {
+      return res.status(500).json({
+        status: false,
+        msg: "Failed to upload image to Cloudinary",
+      });
+    }
+
+    console.log("Cloudinary upload result:", uploaded);
+
+    const monster = await MonsterModel.create({
+      eyes,
+      heads,
+      wings,
+      base,
+      arms,
+      tentacles: tentacles || "no",
+      customerName,
+      customerEmail,
+      createdBy: adminId,
+      role: "admin",
+      monster_image: {
+        secure_url: uploaded.secure_url, // Cloudinary secure URL
+        public_id: uploaded.public_id,
+      },
+    });
+
+    return res.status(201).json({
+      status: true,
+      msg: "Monster created successfully",
+      data: monster,
+    });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ status: false, msg: "Server error", error: error.message });
   }
 };
 
