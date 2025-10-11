@@ -363,3 +363,15 @@ exports.getAllReviews = async (req, res) => {
     return res.status(500).send({ status: false, message: err.message });
   }
 };
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await UserModel.find(
+      { role: "user", "Verification.user.isDeleted": { $ne: true } }, // only normal users, exclude deleted
+      { name: 1, email: 1 } // only return name + email
+    );
+    return res.status(200).send({ status: true, data: users });
+  } catch (e) {
+    return res.status(500).send({ status: false, msg: e.message });
+  }
+};

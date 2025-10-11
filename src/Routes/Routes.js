@@ -5,7 +5,7 @@ const multer = require("multer");
 // Import controller functions
 const {HCM,  UserOtpVerify,  LogInUser,  ResendOTP,  userDelete,  userUpdated,  newEmail,  newEmailVerify,  changePassword,  UploadProfileImg,createReview} = require("../Controller/UserController");
 
-const {  LogInAdmin,  AdminOtpVerify,  UploadAdminProfileImg,  changeAdminPassword,CreateMonsterByAdmin,getAllReviews} = require("../Controller/AdminController");
+const {  LogInAdmin,  AdminOtpVerify,  UploadAdminProfileImg,  changeAdminPassword,CreateMonsterByAdmin,getAllReviews,getAllUsers} = require("../Controller/AdminController");
 
 const { UserAuthenticate, UserAuthorize } = require("../middleware/UserAuth");
 const { authenticate, AdminAuthorize } = require("../middleware/AdminAuth");
@@ -33,6 +33,7 @@ router.post("/AdminOtpVerify/:id", AdminOtpVerify);
 router.put(  "/UploadAdminProfileImg/:id",  upload.single("profileIMG"),  authenticate, AdminAuthorize, UploadAdminProfileImg);
 router.put( "/admin/changePassword/:id",  authenticate,  AdminAuthorize,  changeAdminPassword);
 router.get("/GetAllReviews", getAllReviews);
+router.get("/getAllUsers", getAllUsers);
 
 // ✅ MONSTER ROUTE (from React frontend)
 router.post("/monsters", UserAuthenticate, createMonster);
