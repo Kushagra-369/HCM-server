@@ -1,4 +1,5 @@
 const MonsterModel = require("../Model/MonsterModel");
+const UserModel = require("../Model/UserModel");
 const path = require("path"); 
 const Review = require("../Model/ReviewModel");
 const { otpVerificationAdmin } = require("../Mail/UserMail")
@@ -14,50 +15,40 @@ exports.LogInAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Find admin user
+    console.log("📩 Incoming admin login request:", { email });
+
     const user = await UserModel.findOne({ email, role: "admin" });
     if (!user) {
+      console.log("❌ No admin user found");
       return res.status(400).send({ status: false, msg: "Admin user not found" });
     }
 
-    const AdminDB = {
-      profileIMG: user.profileIMG,
-      name: user.name,
-      email: user.email,
-    };
-
-    // 2. Validate password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log("❌ Wrong password");
       return res.status(400).send({ status: false, msg: "Incorrect password" });
     }
 
-    // 3. Generate OTP & expiration
-    const otp = Math.floor(1000 + Math.random() * 9000); // 4-digit OTP
-    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const otp = Math.floor(1000 + Math.random() * 9000);
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
-    // 4. Save OTP in admin section of Verification
-const updatedAdmin = await UserModel.findOneAndUpdate(
-  { email, role: "admin" },
-  {
-    $set: {
-      "Verification.Admin.AdminOTP": otp,
-      "Verification.Admin.expireOTP": otpExpiry,
-    },
-  },
-  { new: true }
-);
+    console.log("✅ OTP generated:", otp);
 
-if (!updatedAdmin) {
-  return res.status(404).send({ status: false, msg: "Admin not found or role mismatch" });
-}
-console.log("Updated OTP expiry:", updatedAdmin.Verification.Admin.expireOTP);
+    const updatedAdmin = await UserModel.findOneAndUpdate(
+      { email, role: "admin" },
+      {
+        $set: {
+          "Verification.Admin.AdminOTP": otp,
+          "Verification.Admin.expireOTP": otpExpiry,
+        },
+      },
+      { new: true }
+    );
 
+    console.log("✅ OTP saved in DB:", updatedAdmin?._id);
 
-    // 5. Send OTP via email
     await otpVerificationAdmin(user.name, user.email, otp);
 
-    // 6. Create JWT token for further steps
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_Admin_SECRET_KEY,
@@ -66,17 +57,15 @@ console.log("Updated OTP expiry:", updatedAdmin.Verification.Admin.expireOTP);
 
     return res.status(200).send({
       status: true,
-      msg: "Login successful. OTP has been sent to your email.",
-      data: {
-        token,
-        id: user._id,
-        email: user.email, // Include email in response
-      },
+      msg: "Login successful. OTP sent.",
+      data: { token, id: user._id, email: user.email },
     });
   } catch (e) {
-    errorHandlingdata(e, res);
+    console.error("🔥 LogInAdmin Error:", e);
+    return res.status(500).send({ status: false, msg: e.message });
   }
 };
+
  
 exports.getAllUserData = async (req, res) => {
     try {
